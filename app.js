@@ -23,6 +23,9 @@ const server = createServer({
 
 const ENDPOINT_CONFIGS = [
   {
+    path: './endpoints/creator-cards/',
+  },
+  {
     path: './endpoints/onboarding/',
   },
 ];
