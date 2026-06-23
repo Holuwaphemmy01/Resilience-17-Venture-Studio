@@ -19,6 +19,8 @@ const expressEnums = require('./enums');
  */
 function Server(serverConfig = {}) {
   const express = require('express');
+  const fs = require('fs');
+  const nodePath = require('path');
   const { appLogger } = require('@app-core/logger');
   const { ERROR_STATUS_CODE_MAPPING } = require('@app-core/errors');
   const cors = require('cors');
@@ -40,6 +42,57 @@ function Server(serverConfig = {}) {
       }
     });
     return objectClone;
+  }
+
+  function createSwaggerDocsHTML(openApiRoute) {
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Creator Card API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #f7f7f7; }
+      .swagger-ui .topbar { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: '${openApiRoute}',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis],
+          layout: 'BaseLayout',
+        });
+      };
+    </script>
+  </body>
+</html>`;
+  }
+
+  function configureSwaggerDocs() {
+    const openApiRoute = '/docs/openapi.yaml';
+    const openApiFilePath = nodePath.resolve(process.cwd(), 'docs', 'creator-card-openapi.yaml');
+
+    app.get('/swagger', (_, res) => res.redirect('/docs'));
+
+    app.get('/docs', (_, res) => {
+      res.type('html').send(createSwaggerDocsHTML(openApiRoute));
+    });
+
+    app.get(openApiRoute, (_, res) => {
+      if (!fs.existsSync(openApiFilePath)) {
+        res.status(404).type('text/plain').send('OpenAPI document not found.');
+        return;
+      }
+
+      res.type('application/yaml').send(fs.readFileSync(openApiFilePath, 'utf8'));
+    });
   }
 
   function createRequestLog(request) {
@@ -82,6 +135,8 @@ function Server(serverConfig = {}) {
   handlerHelpers.http_statuses = expressEnums.HTTPStatusCode;
 
   const LOG_APP_REQUEST = parseInt(process.env.LOG_APP_REQUEST, 10);
+
+  configureSwaggerDocs();
 
   /**
    *
@@ -275,14 +330,15 @@ function Server(serverConfig = {}) {
   }
 
   function startServer() {
-    app.use((_, res, __) => {
+    app.use((_, res) => {
       // Global 404 Catcher
       res.status(404).json({
         status: 'error',
         message: 'Resource not found.',
       });
     });
-    app.use((err, _, res, __) => {
+    // eslint-disable-next-line no-unused-vars
+    app.use((err, _, res, next) => {
       appLogger.errorX(err, 'global-500-error');
       // Global 500 Catcher
       res.status(500).json({
