@@ -24,6 +24,7 @@ async function createConnection(connectionConfig = {}) {
   const { uri = process.env.MONGODB_URI, isNotDefault } = connectionConfig;
 
   if (!uri) {
+    // Surface missing MongoDB configuration during local setup and deployment.
     appLogger.warn({}, 'mongodb-uri-not-configured');
     return connectionResult;
   }
@@ -36,6 +37,8 @@ async function createConnection(connectionConfig = {}) {
   try {
     let connection;
 
+    // The app uses the default connection; this branch preserves template support
+    // for modules that need an isolated mongoose connection.
     if (isNotDefault) {
       connection = await mongoose.createConnection(uri, connectionOptions).asPromise();
     } else {
@@ -43,6 +46,7 @@ async function createConnection(connectionConfig = {}) {
     }
 
     connectionResult.connection = connection;
+    // Positive connection signal. Only non-sensitive metadata is logged.
     appLogger.info(
       {
         databaseName: connection.name,
@@ -52,6 +56,7 @@ async function createConnection(connectionConfig = {}) {
       'mongodb-connected'
     );
   } catch (e) {
+    // Keep the original driver message for DNS, allowlist, auth, and URI issues.
     appLogger.errorX(e, 'mongodb-connection-failed');
     throw new Error(e.message);
   }

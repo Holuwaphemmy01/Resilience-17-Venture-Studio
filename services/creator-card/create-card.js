@@ -7,11 +7,14 @@ const serializeCreatorCard = require('./serialize-card');
 
 const CUSTOM_ERROR_CODE = {
   DUPLICATE_RECORD: 'DUPLICATE_RECORD',
+  // Assessment business-rule codes. Validator failures still return framework 400s.
   SLUG_ALREADY_TAKEN: 'SL02',
   PRIVATE_ACCESS_CODE_REQUIRED: 'AC01',
   PUBLIC_ACCESS_CODE_NOT_ALLOWED: 'AC05',
 };
 
+// Template validator spec for field-level rules such as required fields,
+// string lengths, enums, casing, and nested service rate shapes.
 const createCreatorCardSpec = `root {
   title string<trim|lengthBetween:3,100>
   description? string<trim|maxLength:500>
@@ -84,6 +87,7 @@ function validateAccessCodeFormat(accessCode) {
 }
 
 function validateLinks(links = []) {
+  // Validator checks the value is a string; this enforces usable web URLs.
   links.forEach((link) => {
     const startsWithHttp = link.url.startsWith('http://');
     const startsWithHttps = link.url.startsWith('https://');
@@ -97,6 +101,7 @@ function validateLinks(links = []) {
 function validateServiceRates(serviceRates) {
   if (!serviceRates) return;
 
+  // Amounts are stored in the smallest currency unit, so fractions are rejected.
   serviceRates.rates.forEach((rate) => {
     if (!Number.isInteger(rate.amount)) {
       throwAppError(CreatorCardMessages.INVALID_RATE_AMOUNT, ERROR_CODE.INVLDDATA);
@@ -105,6 +110,7 @@ function validateServiceRates(serviceRates) {
 }
 
 function createSlugFromTitle(title) {
+  // Deterministic slug generation keeps tests predictable and URLs readable.
   const lowerCaseTitle = title.toLowerCase();
   let slug = '';
   let previousCharacterWasHyphen = false;
@@ -135,6 +141,7 @@ async function findCardBySlug(slug, repository) {
 }
 
 async function ensureClientSlugIsAvailable(slug, repository) {
+  // Client-supplied slugs fail with SL02 instead of changing the requested URL.
   const existingCard = await findCardBySlug(slug, repository);
 
   if (existingCard) {
@@ -143,6 +150,7 @@ async function ensureClientSlugIsAvailable(slug, repository) {
 }
 
 async function createAvailableGeneratedSlug(baseSlug, repository, generateSuffix) {
+  // Auto-generated slugs may receive suffixes to satisfy length and uniqueness.
   const candidateSlug = baseSlug.length < 5 ? `${baseSlug}-${generateSuffix()}` : baseSlug;
   const existingCard = await findCardBySlug(candidateSlug, repository);
 
@@ -173,6 +181,7 @@ async function resolveSlug(data, repository, generateSuffix) {
 function validateAccessRules(data) {
   const accessType = data.access_type || 'public';
 
+  // Private cards must have a pin; public cards must not carry hidden pins.
   if (accessType === 'private' && !data.access_code) {
     throwAppError(
       CreatorCardMessages.PRIVATE_ACCESS_CODE_REQUIRED,
@@ -196,6 +205,7 @@ async function createCreatorCard(serviceData, options = {}) {
   let response;
   const data = validator.validate(serviceData, parsedCreateCreatorCardSpec);
   const repository = options.repository || creatorCardRepository;
+  // Injectable suffix generation makes slug-collision tests deterministic.
   const generateSuffix = options.generateSuffix || (() => randomBytes(6));
 
   validateAccessRules(data);
@@ -204,6 +214,7 @@ async function createCreatorCard(serviceData, options = {}) {
 
   const slug = await resolveSlug(data, repository, generateSuffix);
   const accessType = data.access_type || 'public';
+  // Normalize optional fields so stored documents and responses are predictable.
   const cardPayload = {
     title: data.title,
     description: data.description || null,
@@ -221,6 +232,7 @@ async function createCreatorCard(serviceData, options = {}) {
     const createdCard = await repository.create(cardPayload);
     response = serializeCreatorCard(createdCard);
   } catch (error) {
+    // Database uniqueness is the race-condition fallback for duplicate slugs.
     if (error.errorCode === CUSTOM_ERROR_CODE.DUPLICATE_RECORD) {
       throwAppError(CreatorCardMessages.SLUG_ALREADY_TAKEN, CUSTOM_ERROR_CODE.SLUG_ALREADY_TAKEN);
     }

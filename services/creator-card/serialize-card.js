@@ -2,6 +2,8 @@ function serializeCreatorCard(creatorCard, options = {}) {
   const { includeAccessCode = true } = options;
   const cardDocument = creatorCard._doc || creatorCard;
   const { _id, __v, ...cardData } = cardDocument;
+  // API responses expose id, never Mongo's internal _id. Sharing this mapper
+  // keeps create, retrieve, and delete responses consistent.
   const serializedCard = {
     id: _id,
     title: cardData.title,
@@ -18,6 +20,7 @@ function serializeCreatorCard(creatorCard, options = {}) {
   };
 
   if (includeAccessCode) {
+    // Create/delete keep the creation shape; retrieval opts out to avoid pin leaks.
     serializedCard.access_code = cardData.access_code || null;
   }
 

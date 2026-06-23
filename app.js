@@ -1,5 +1,7 @@
 /* eslint-disable global-require */
 /* eslint-disable import/no-dynamic-require */
+// Load local .env values unless bootstrap.js already populated process.env,
+// for example from AWS Secrets Manager in a deployed environment.
 if (!process.env.__ALREADY_BOOTSTRAPPED_ENVS) require('dotenv').config();
 
 const fs = require('fs');
@@ -10,10 +12,13 @@ const { createQueue } = require('@app-core/queue');
 const canLogEndpointInformation = process.env.CAN_LOG_ENDPOINT_INFORMATION;
 
 async function initializeApp() {
+  // Creator Cards are stored in MongoDB, so startup waits for the database.
+  // A failed connection exits early and makes deployment issues visible.
   await createConnection({
     uri: process.env.MONGODB_URI,
   });
 
+  // Queue setup remains from the template; these endpoints do not require Redis.
   createQueue();
 
   const server = createServer({
@@ -24,6 +29,7 @@ async function initializeApp() {
 
   const ENDPOINT_CONFIGS = [
     {
+      // Routes stay at the root as required: /creator-cards, with no /v1 prefix.
       path: './endpoints/creator-cards/',
     },
     {

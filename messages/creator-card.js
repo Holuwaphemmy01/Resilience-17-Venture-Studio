@@ -1,4 +1,5 @@
 const CreatorCardMessages = {
+  // Centralized messages keep response text and custom error cases consistent.
   CREATED_SUCCESSFULLY: 'Creator Card Created Successfully.',
   RETRIEVED_SUCCESSFULLY: 'Creator Card Retrieved Successfully.',
   DELETED_SUCCESSFULLY: 'Creator Card Deleted Successfully.',

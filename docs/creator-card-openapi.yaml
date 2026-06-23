@@ -1,3 +1,5 @@
+# OpenAPI reference for the three unauthenticated Creator Card assessment routes.
+# It documents the create, public retrieve, and soft-delete response contracts.
 openapi: 3.0.3
 info:
   title: Creator Card API

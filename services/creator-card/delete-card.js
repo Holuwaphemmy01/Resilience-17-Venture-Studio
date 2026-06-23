@@ -8,6 +8,7 @@ const CUSTOM_ERROR_CODE = {
   CREATOR_CARD_NOT_FOUND: 'NF01',
 };
 
+// Validates both the public slug and creator_reference ownership check.
 const deleteCreatorCardSpec = `root {
   slug string<trim|minLength:1>
   creator_reference string<trim|length:20>
@@ -29,6 +30,7 @@ function cardHasBeenDeleted(creatorCard) {
 async function deleteCreatorCard(serviceData, options = {}) {
   const data = validator.validate(serviceData, parsedDeleteCreatorCardSpec);
   const repository = options.repository || creatorCardRepository;
+  // Injectable clock keeps soft-delete assertions deterministic in unit tests.
   const getCurrentTimestamp = options.getCurrentTimestamp || Date.now;
   const creatorCard = await repository.findOne({
     query: {
@@ -42,6 +44,7 @@ async function deleteCreatorCard(serviceData, options = {}) {
     throwCreatorCardNotFound();
   }
 
+  // Soft delete preserves an audit timestamp and prevents future public retrieval.
   const deletedAt = getCurrentTimestamp();
   const deleteResult = await repository.updateOne({
     query: {
@@ -53,9 +56,11 @@ async function deleteCreatorCard(serviceData, options = {}) {
   });
 
   if (!deleteResult.modifiedCount) {
+    // A concurrent delete should behave like a missing card and return NF01.
     throwCreatorCardNotFound();
   }
 
+  // Deletion returns the creation response shape, including access_code and deleted.
   const response = serializeCreatorCard({
     ...creatorCard,
     deleted: deletedAt,

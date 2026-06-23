@@ -96,6 +96,8 @@ function assertNoMongoId(value) {
   assert.strictEqual(typeof value.id, 'string');
 }
 
+// End-to-end service-level coverage for the 16 valid and invalid cases supplied
+// in the assessment prompt. HTTP statuses are mapped from the template errors.
 describe('creator card assessment cases', () => {
   let repository;
   const options = () => ({ repository, generateSuffix: () => 'a1b2c3' });
