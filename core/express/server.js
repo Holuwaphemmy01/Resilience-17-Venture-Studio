@@ -75,6 +75,13 @@ function Server(serverConfig = {}) {
 </html>`;
   }
 
+  function getRequestOrigin(request) {
+    const protocol = request.get('x-forwarded-proto') || request.protocol;
+    const host = request.get('x-forwarded-host') || request.get('host');
+
+    return `${protocol}://${host}`;
+  }
+
   function configureSwaggerDocs() {
     const openApiRoute = '/docs/openapi.yaml';
     const openApiFilePath = nodePath.resolve(process.cwd(), 'docs', 'creator-card-openapi.yaml');
@@ -85,13 +92,17 @@ function Server(serverConfig = {}) {
       res.type('html').send(createSwaggerDocsHTML(openApiRoute));
     });
 
-    app.get(openApiRoute, (_, res) => {
+    app.get(openApiRoute, (req, res) => {
       if (!fs.existsSync(openApiFilePath)) {
         res.status(404).type('text/plain').send('OpenAPI document not found.');
         return;
       }
 
-      res.type('application/yaml').send(fs.readFileSync(openApiFilePath, 'utf8'));
+      const openApiDocument = fs
+        .readFileSync(openApiFilePath, 'utf8')
+        .replace('__CURRENT_SERVER_URL__', getRequestOrigin(req));
+
+      res.type('application/yaml').send(openApiDocument);
     });
   }
 

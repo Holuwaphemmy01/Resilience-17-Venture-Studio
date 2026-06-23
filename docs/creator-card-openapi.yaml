@@ -10,10 +10,8 @@ info:
     Authentication: these assessment endpoints are public and do not require API keys,
     bearer tokens, or any authentication headers.
 servers:
-  - url: http://localhost:8811
-    description: Local development
-  - url: https://your-render-service.onrender.com
-    description: Render deployment
+  - url: __CURRENT_SERVER_URL__
+    description: Current environment
 
 tags:
   - name: Creator Cards
